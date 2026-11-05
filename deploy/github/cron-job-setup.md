@@ -12,16 +12,19 @@
 
 **组合后**：cron-job.org 提供精准定时，GitHub Actions 提供运行环境（Chromium → 29 条）+ 基线持久化（提交回 git）。三者短板互补。
 
-## 但仍有两个硬限制（务必先看）
+## 关于额度（已确认，无需担心）
 
-1. **GitHub 免费额度 2000 分钟/月**：5 分钟一次 × 每次约 60 秒 ≈ 8600 分钟/月，只能撑约 7 天。要么接受月底停，要么改成 10~15 分钟一次。
-2. **海外 IP 风控风险**：GitHub 服务器在海外，京东风控对海外 IP 可能更严。本机（国内 IP）实测能 29 条，GitHub 不保证。若只有 16 条 + 降级提示，说明 IP 被拦。
+**公开仓库 + ubuntu-latest（standard runner）= GitHub Actions 免费且不限量**（GitHub 官方确认）。所以每 5 分钟跑一次、每次跑 Chromium 几分钟，都**不花钱、不限量**。前提是仓库设为**公开**。
+
+## 唯一需要实测的风险
+
+**海外 IP 风控**：GitHub 服务器在海外，京东风控对海外 IP 可能更严。本机（国内 IP）实测能 29 条，GitHub 的 IP 不保证。若推上去后只有 16 条 + 降级提示，说明 IP 被拦——那时再考虑国内云服务器 Docker（也已改成无需 cookie）。
 
 ---
 
 ## 部署步骤
 
-### 1. 推项目到 GitHub
+### 1. 推项目到 GitHub（公开仓库）
 
 ```bash
 cd jd-today-crawler
@@ -29,11 +32,15 @@ git init
 git add .
 git commit -m "jd babel push"
 git branch -M main
-git remote add origin https://github.com/<用户名>/<仓库名>.git
+git remote add origin https://github.com/evringSaki/jbbpush.git
 git push -u origin main
 ```
 
-### 2. 放工作流
+> 注意：仓库必须设为**公开**（Public），否则只有 2000 分钟/月，5 分钟一次跑不满一个月。
+
+### 2. 工作流文件
+
+项目里已有 `deploy/github/jd-push.yml`，但 GitHub Actions 只认 `.github/workflows/` 目录。推代码前先复制过去：
 
 ```bash
 mkdir -p .github/workflows
@@ -65,8 +72,8 @@ cron-job.org 触发 workflow 需要带凭证。
 
 | 字段 | 值 |
 |---|---|
-| Title | `jd-babel-push` |
-| URL | `https://api.github.com/repos/<用户名>/<仓库名>/actions/workflows/jd-push.yml/dispatches` |
+| Title | `jbbpush` |
+| URL | `https://api.github.com/repos/evringSaki/jbbpush/actions/workflows/jd-push.yml/dispatches` |
 | 执行计划 | 每 5 分钟 |
 | Request method | **POST** |
 
@@ -111,17 +118,6 @@ git push
 
 ---
 
-## 额度不够怎么办（建议先这样）
-
-先改成 **10 分钟一次**（cron-job.org 里选每 10 分钟）：
-
-- 10 分钟 × 288 分钟/天 ≈ 1440 分钟/月，**免费额度内**；
-- 上新延迟最多 10 分钟，对"加倍补上新"完全够用。
-
-要精准卡点抢购的话，这个延迟可能不够，那得上云服务器 Docker。
-
----
-
 ## 常见问题
 
 **Q：cron-job.org 触发后 GitHub 没反应？**
@@ -131,7 +127,7 @@ A：检查 ① PAT 有 `workflow` 权限；② URL 里工作流文件名对（`j
 A：基线没持久化。看仓库里 `data/snapshots/baseline.json` 是否在持续更新，以及 workflow 里 `permissions: contents: write` 是否生效。
 
 **Q：只有 16 条？**
-A：海外 IP 被风控。看 log 里 `CHROME_PATH` 是否找到浏览器；若浏览器正常但只有 16 条 + 降级提示，就是 IP 被拦，只能换国内云服务器。
+A：海外 IP 被风控。看 log 里浏览器是否正常启动；若浏览器正常但只有 16 条 + 降级提示，就是 IP 被拦，只能换国内云服务器。
 
 **Q：cron-job.org 免费版够用吗？**
-A：免费版有执行次数限制（通常够每 5 分钟跑一个月），但**不保证**。若触发不了，免费额度可能不够，换国内云服务器最稳。
+A：免费版有执行次数限制（通常够每 5 分钟跑一个月），但**不保证**。若触发不了，换国内云服务器最稳。
