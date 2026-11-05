@@ -1,0 +1,24 @@
+services:
+  jd-babel-push:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: jd-babel-push:latest
+    container_name: jd-babel-push
+    restart: always
+    environment:
+      TZ: Asia/Shanghai
+      PUSH_INTERVAL: "5"
+      # 推送通道：wecom / feishu / dingtalk / bark / serverchan / pushplus / telegram / generic
+      NOTIFY_CHANNEL: "${NOTIFY_CHANNEL:-pushplus}"
+      NOTIFY_URL: "${NOTIFY_URL:-}"
+      NOTIFY_TOKEN: "${NOTIFY_TOKEN:-}"
+      NOTIFY_MODE: "${NOTIFY_MODE:-new}"   # new=只推上新；change=含下架/变动；always=每轮
+      # 无需 JD_COOKIE：2026-11-06 起桌面 UA + 无头 Chromium 即可拿到全部 29 条
+    volumes:
+      - ../data:/app/data
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"

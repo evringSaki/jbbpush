@@ -1,0 +1,29 @@
+{
+  "name": "jd-today-crawler",
+  "version": "1.0.0",
+  "description": "京东「今日抢购」活动页全量商品采集：SSR 楼层解析 + 推荐流分页 + 完整性校验",
+  "main": "src/cli.js",
+  "bin": {
+    "jd-today": "src/cli.js"
+  },
+  "scripts": {
+    "start": "node src/cli.js",
+    "crawl": "node src/cli.js",
+    "crawl:browser": "node src/cli.js --browser --sessions 2",
+    "crawl:trace": "node src/cli.js --browser --trace"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "jd",
+    "seckill",
+    "crawler",
+    "playwright",
+    "ssr"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "playwright-core": "^1.64.1"
+  }
+}

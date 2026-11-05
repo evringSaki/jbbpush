@@ -1,0 +1,65 @@
+name: jd-babel-push
+
+on:
+  # cron-job.org 精准触发（每 5 分钟 POST 一次 workflow_dispatch）。
+  # 公开仓库 + ubuntu-latest standard runner 免费且不限量，无需担心额度。
+  # 若想用 GitHub 自带 schedule 兜底（不准时，延迟几十分钟），去掉下面注释：
+  # schedule:
+  #   - cron: "*/5 * * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write         # 允许提交基线文件，实现跨运行持久化
+
+concurrency:
+  group: jd-babel-push
+  cancel-in-progress: false
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install deps
+        run: npm ci || npm install
+
+      - name: Install Chromium (with system deps)
+        run: npx playwright install chromium --with-deps
+
+      - name: Crawl & push (29 items, no cookie)
+        env:
+          NOTIFY_CHANNEL: ${{ secrets.NOTIFY_CHANNEL }}
+          NOTIFY_TOKEN: ${{ secrets.NOTIFY_TOKEN }}
+          NOTIFY_URL: ${{ secrets.NOTIFY_URL }}
+          NOTIFY_MODE: new
+          # 用 playwright 自带的 chromium，不依赖系统 google-chrome
+          # （若系统已有 google-chrome，可改 CHROME_PATH=/usr/bin/google-chrome 省去上一步）
+        run: node src/cli.js --browser --sessions 1 --max-scroll 30 --push --notify "$NOTIFY_CHANNEL" --notify-token "$NOTIFY_TOKEN"
+
+      - name: Persist baseline (so next run can diff)
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f data/snapshots/baseline.json
+          if git diff --cached --quiet; then
+            echo "no change"
+            exit 0
+          fi
+          git commit -m "chore: update baseline $(date -u +%FT%TZ)" || echo "commit failed"
+          for i in 1 2 3 4; do
+            git fetch origin main --quiet || true
+            git reset --quiet origin/main 2>/dev/null || true
+            git add -f data/snapshots/baseline.json
+            if git diff --cached --quiet; then echo "baseline synced"; exit 0; fi
+            git commit -q -m "chore: update baseline $(date -u +%FT%TZ)" || true
+            if git push origin HEAD:main; then echo "pushed"; exit 0; fi
+            echo "push failed, retry $i/4"; sleep 5
+          done
+          echo "baseline persist failed (不影响推送)"

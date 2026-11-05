@@ -1,0 +1,16 @@
+node_modules/
+edge-profile-link/
+deploy/.env
+deploy/scf/.stage/
+*.log
+
+# ── 运行时产物一律不入库 ──
+# data/ 里的 trace（含 h5st/eid 签名）、快照历史、推送日志、CSV/JSON 归档
+# 都是易变/敏感数据，GitHub Actions 每次运行会重新生成。
+# 唯一需要持久化的是 baseline.json（跨运行 diff 用，内容只有 SKU/名称/价格/库存，无凭证）。
+data/*
+!data/snapshots/
+data/snapshots/*
+!data/snapshots/baseline.json
+
+.DS_Store
